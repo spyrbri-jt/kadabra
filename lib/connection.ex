@@ -86,6 +86,7 @@ defmodule Kadabra.Connection do
   def handle_cast({:request, events}, state) do
     Logger.info "[KADABRA] Connection request"
     state = do_send_headers(events, state)
+    Logger.info "[KADABRA] Connection request 2"
     {:noreply, state}
   end
 
@@ -126,6 +127,8 @@ defmodule Kadabra.Connection do
       |> FlowControl.add(request)
       |> FlowControl.process(state.config)
 
+    Logger.info "[KADABRA] do send headers #{inspect(flow)}"
+
     %{state | flow_control: flow}
   end
 
@@ -161,9 +164,11 @@ defmodule Kadabra.Connection do
   def handle_info({:recv, frame}, state) do
     case Processor.process(frame, state) do
       {:ok, state} ->
+        Logger.info "[KADABRA] Connection ok"
         {:noreply, state}
 
       {:connection_error, error, reason, state} ->
+        Logger.error "[KADABRA] Connection error #{inspect(error)} #{inspect(reason)}"
         Egress.send_goaway(
           state.config.socket,
           state.flow_control.stream_set.stream_id,
@@ -176,6 +181,7 @@ defmodule Kadabra.Connection do
   end
 
   def terminate(_reason, %{config: config}) do
+    Logger.error "[KADABRA] terminate"
     Kernel.send(config.client, {:closed, config.queue})
     :ok
   end

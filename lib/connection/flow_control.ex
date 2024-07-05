@@ -1,6 +1,8 @@
 defmodule Kadabra.Connection.FlowControl do
   @moduledoc false
 
+  require Logger
+
   @default_window_size round(:math.pow(2, 16) - 1)
   @max_window_size round(:math.pow(2, 31) - 1)
 
@@ -50,11 +52,13 @@ defmodule Kadabra.Connection.FlowControl do
 
   @spec add(t, any) :: t
   def add(%{queue: queue} = flow_control, requests) when is_list(requests) do
+    Logger.info "[KADABRA] Flow controll #{inspect(queue)}"
     queue = Enum.reduce(requests, queue, &:queue.in(&1, &2))
     %{flow_control | queue: queue}
   end
 
   def add(%{queue: queue} = flow_control, request) do
+    Logger.info "[KADABRA] Flow controll add #{inspect(queue)}"
     queue = :queue.in(request, queue)
     %{flow_control | queue: queue}
   end
@@ -77,10 +81,13 @@ defmodule Kadabra.Connection.FlowControl do
 
       stream = Stream.new(config, stream_id, window, max_frame)
 
+
       case Stream.start_link(stream) do
         {:ok, pid} ->
+          Logger.info "[KADABRA] Stream created"
           size = byte_size(request.body || <<>>)
           :gen_statem.call(pid, {:send_headers, request})
+          Logger.info "[KADABRA] Stream request #{inspect(request)}"
 
           updated_set = add_stream(stream_set, stream_id, pid)
 
@@ -91,6 +98,7 @@ defmodule Kadabra.Connection.FlowControl do
           |> process(config)
 
         other ->
+          Logger.info "[KADABRA] Stream error"
           raise "something happened #{inspect(other)}"
           flow
       end
