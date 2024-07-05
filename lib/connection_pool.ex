@@ -13,6 +13,8 @@ defmodule Kadabra.ConnectionPool do
 
   alias Kadabra.Connection
 
+  require Logger
+
   @spec start_link(URI.t(), pid, Keyword.t()) :: {:ok, pid}
   def start_link(uri, pid, opts) do
     config = %Kadabra.Config{
@@ -42,6 +44,7 @@ defmodule Kadabra.ConnectionPool do
   end
 
   def request(pid, request) do
+    Logger.info "[KADABRA] request"
     GenServer.call(pid, {:request, [request]})
   end
 
@@ -52,6 +55,7 @@ defmodule Kadabra.ConnectionPool do
   ## Callbacks
 
   def init(config) do
+    Logger.info "[KADABRA] init"
     config = %{config | queue: self()}
 
     Process.flag(:trap_exit, true)
@@ -61,6 +65,7 @@ defmodule Kadabra.ConnectionPool do
   end
 
   def handle_cast({:ask, demand}, state) do
+    Logger.info "[KADABRA] ask"
     state =
       state
       |> increment_demand(demand)
@@ -70,11 +75,13 @@ defmodule Kadabra.ConnectionPool do
   end
 
   def handle_call(:close, _from, state) do
+    Logger.info "[KADABRA] close"
     Connection.close(state.connection)
     {:stop, :shutdown, :ok, state}
   end
 
   def handle_call(:ping, _from, state) do
+    Logger.info "[KADABRA] ping"
     Connection.ping(state.connection)
     {:reply, :ok, state}
   end
@@ -115,6 +122,8 @@ defmodule Kadabra.ConnectionPool do
   end
 
   defp dispatch_events(state) do
+    Logger.info "[KADABRA] dispatching"
+
     {to_dispatch, rest} = Enum.split(state.events, state.pending_demand)
     new_pending = state.pending_demand - Enum.count(to_dispatch)
 

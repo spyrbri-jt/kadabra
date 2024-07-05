@@ -11,6 +11,7 @@ defmodule Kadabra.Connection do
             queue: nil
 
   use GenServer
+
   require Logger
 
   import Kernel, except: [send: 2]
@@ -83,6 +84,7 @@ defmodule Kadabra.Connection do
   end
 
   def handle_cast({:request, events}, state) do
+    Logger.info "[KADABRA] Connection request"
     state = do_send_headers(events, state)
     {:noreply, state}
   end
@@ -94,6 +96,7 @@ defmodule Kadabra.Connection do
   # handle_call
 
   def handle_call(:close, _from, %Connection{} = state) do
+    Logger.info "[KADABRA] Connection close"
     %Connection{
       flow_control: flow,
       config: config
@@ -108,6 +111,7 @@ defmodule Kadabra.Connection do
 
   @spec sendf(:goaway | :ping, t) :: {:noreply, t}
   def sendf(:ping, %Connection{config: config} = state) do
+    Logger.info "[KADABRA] ping"
     Egress.send_ping(config.socket)
     {:noreply, state}
   end
@@ -126,6 +130,7 @@ defmodule Kadabra.Connection do
   end
 
   def handle_info(:start, %{config: %{socket: socket}} = state) do
+    Logger.info "[KADABRA] Connection start"
     Socket.set_active(socket)
     Egress.send_local_settings(socket, state.local_settings)
 
@@ -133,6 +138,7 @@ defmodule Kadabra.Connection do
   end
 
   def handle_info({:closed, _pid}, state) do
+    Logger.info "[KADABRA] Connection close"
     {:stop, :shutdown, state}
   end
 
