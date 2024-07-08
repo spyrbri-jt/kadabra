@@ -88,7 +88,7 @@ defmodule Kadabra.Connection do
   def handle_cast({:request, events}, state) do
     Logger.info "[KADABRA] Connection request"
     state = do_send_headers(events, state)
-    Logger.info "[KADABRA] Connection request 2"
+    Logger.info "[KADABRA] Connection request"
     {:noreply, state}
   end
 

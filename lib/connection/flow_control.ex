@@ -70,6 +70,7 @@ defmodule Kadabra.Connection.FlowControl do
 
   @spec process(t, Config.t()) :: t
   def process(%{queue: queue, stream_set: stream_set} = flow, config) do
+    Logger.info "[KADABRA] flow controll process"
     with {{:value, request}, queue} <- :queue.out(queue),
          {:can_send, true} <- {:can_send, StreamSet.can_send?(stream_set)},
          {:can_send, true} <- {:can_send, can_send?(flow)} do
@@ -103,8 +104,12 @@ defmodule Kadabra.Connection.FlowControl do
           flow
       end
     else
-      {:empty, _queue} -> flow
-      {:can_send, false} -> flow
+      {:empty, _queue} ->
+        Logger.info "[KADABRA] flow control empty"
+        flow
+      {:can_send, false} ->
+        Logger.info "[KADABRA] flow control cannot send"
+        flow
     end
   end
 

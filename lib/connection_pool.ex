@@ -125,9 +125,13 @@ defmodule Kadabra.ConnectionPool do
     Logger.info "[KADABRA] dispatching"
 
     {to_dispatch, rest} = Enum.split(state.events, state.pending_demand)
+    Logger.info "[KADABRA] dispatching to_dispatch: #{inspect(to_dispatch)}"
+    Logger.info "[KADABRA] dispatching rest: #{inspect(rest)}"
     new_pending = state.pending_demand - Enum.count(to_dispatch)
 
-    GenServer.cast(state.connection, {:request, to_dispatch})
+    response = GenServer.cast(state.connection, {:request, to_dispatch})
+    Logger.info "[KADABRA] dispatching response: #{inspect(response)}"
+
     %{state | pending_demand: new_pending, events: rest}
   end
 end

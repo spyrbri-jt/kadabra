@@ -145,6 +145,7 @@ defmodule Kadabra.Stream do
     :gen_statem.reply(from, :ok)
 
     response = Response.new(stream.id, stream.headers, stream.body)
+    Logger.info("[KADABRA] Stream response #{inspect(response)}")
     send(stream.connection, {:push_promise, response})
     {:next_state, @reserved_remote, stream}
   end
@@ -192,7 +193,9 @@ defmodule Kadabra.Stream do
   end
 
   def handle_event(:enter, _old, @closed, stream) do
+    Logger.info("[KADABRA] handle event enter")
     response = Response.new(stream.id, stream.headers, stream.body)
+    Logger.info("[KADABRA] handle event #{inspect(response)}")
     Tasks.run(stream.on_response, response)
     send(stream.client, {:end_stream, response})
 
