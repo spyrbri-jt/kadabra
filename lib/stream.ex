@@ -88,26 +88,31 @@ defmodule Kadabra.Stream do
 
   def recv(from, %Data{end_stream: true, data: data}, state, stream)
       when state in [@hc_local] do
+    Logger.info("[KADABRA] Stream recv end stream true with state")
     :gen_statem.reply(from, :ok)
     stream = %Stream{stream | body: stream.body <> data}
     {:next_state, @closed, stream}
   end
 
   def recv(from, %Data{end_stream: true, data: data}, _state, stream) do
+    Logger.info("[KADABRA] Stream recv end stream true without state")
     :gen_statem.reply(from, :ok)
     stream = %Stream{stream | body: stream.body <> data}
     {:next_state, @hc_remote, stream}
   end
 
   def recv(from, %Data{end_stream: false, data: data}, _state, stream) do
+    Logger.info("[KADABRA] Stream recv end stream false")
     :gen_statem.reply(from, :ok)
     stream = %Stream{stream | body: stream.body <> data}
     {:keep_state, stream}
   end
 
   def recv(from, %Headers{end_stream: end_stream?} = frame, _state, stream) do
+    Logger.info("[KADABRA] Stream recv headers")
     case Hpack.decode(stream.decoder, frame.header_block_fragment) do
       {:ok, headers} ->
+        Logger.info("[KADABRA] Stream recv received headers")
         :gen_statem.reply(from, :ok)
 
         stream = %Stream{stream | headers: stream.headers ++ headers}
@@ -117,6 +122,7 @@ defmodule Kadabra.Stream do
           else: {:keep_state, stream}
 
       _error ->
+        Logger.info("[KADABRA] Stream recv headers error")
         :gen_statem.reply(from, {:connection_error, :COMPRESSION_ERROR})
         {:stop, :normal}
     end
@@ -125,12 +131,14 @@ defmodule Kadabra.Stream do
   def recv(from, %RstStream{} = _frame, state, stream)
       when state in [@open, @hc_local, @hc_remote, @closed] do
     # IO.inspect(frame, label: "Got RST_STREAM")
+    Logger.info("[KADABRA] Stream recv rst stream")
     {:next_state, :closed, stream, [{:reply, from, :ok}]}
   end
 
   def recv(from, %PushPromise{} = frame, state, stream)
       when state in [@idle] do
     {:ok, headers} = Hpack.decode(stream.decoder, frame.header_block_fragment)
+    Logger.info("[KADABRA] Stream recv adding headers")
 
     stream = %Stream{stream | headers: stream.headers ++ headers}
 
@@ -232,6 +240,7 @@ defmodule Kadabra.Stream do
   end
 
   def handle_event({:call, from}, {:send_headers, request}, _state, stream) do
+    Logger.info("[KADABRA] Stream send headers")
     %{headers: headers, body: payload, on_response: on_resp} = request
 
     headers_payload = encode_headers(stream.encoder, headers, stream.uri)
@@ -280,6 +289,7 @@ defmodule Kadabra.Stream do
   defp process_payload_if_needed(stream, nil), do: stream
 
   defp process_payload_if_needed(stream, payload) do
+    Logger.info("[KADABRA] Stream process payload")
     flow =
       stream.flow
       |> Stream.FlowControl.add(payload)
@@ -298,7 +308,10 @@ defmodule Kadabra.Stream do
       end)
       |> encode_and_flatten()
 
-    Socket.send(socket, bin)
+    Logger.info("[KADABRA] Stream send data frames")
+    response = Socket.send(socket, bin)
+    Logger.info("[KADABRA] Stream send data frames #{response}")
+
 
     %{flow_control | out_queue: :queue.new()}
   end
@@ -309,7 +322,10 @@ defmodule Kadabra.Stream do
 
   def callback_mode, do: [:handle_event_function, :state_enter]
 
-  def terminate(_reason, _state, _stream), do: :void
+  def terminate(reason, state, stream) do
+    Logger.info("[KADABRA] terminate reason: #{inspect(reason)}, state: #{inspect(state)}, stream: #{inspect(stream)}")
+    :void
+  end
 
   def code_change(_vsn, state, data, _extra), do: {:ok, state, data}
 end
