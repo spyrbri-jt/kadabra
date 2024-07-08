@@ -40,11 +40,12 @@ defmodule Kadabra.Connection.Processor do
           {:ok, Connection.t()}
           | {:connection_error, atom, binary, Connection.t()}
   def process(bin, state) when is_binary(bin) do
-    Logger.info("Got binary: #{inspect(bin)}")
+    Logger.info("[KADABRA] Processor got binary: #{inspect(bin)}")
     state
   end
 
   def process(%Data{stream_id: 0}, state) do
+    Logger.info("[KADABRA] Processor error #{inspect(state)}")
     reason = "Recv DATA with stream ID of 0"
     {:connection_error, :PROTOCOL_ERROR, reason, state}
   end
@@ -68,9 +69,11 @@ defmodule Kadabra.Connection.Processor do
 
     case Stream.call_recv(pid, frame) do
       :ok ->
+        Logger.info("[KADABRA] Processor header ok")
         {:ok, state}
 
       {:connection_error, error} ->
+         Logger.info("[KADABRA] Processor header error #{inspect(error)}")
         {:connection_error, error, nil, state}
     end
   end
@@ -165,11 +168,13 @@ defmodule Kadabra.Connection.Processor do
 
   def process(%Ping{stream_id: sid}, state) when sid != 0 do
     reason = "Recv PING with stream ID of #{sid}"
+    Logger.info("[KADABRA] Processor error #{reason}")
     {:connection_error, :PROTOCOL_ERROR, reason, state}
   end
 
   def process(%Ping{data: data}, state) when byte_size(data) != 8 do
     reason = "Recv PING with payload of #{byte_size(data)} bytes"
+    Logger.info("[KADABRA] Processor error #{reason}")
     {:connection_error, :FRAME_SIZE_ERROR, reason, state}
   end
 
@@ -185,6 +190,7 @@ defmodule Kadabra.Connection.Processor do
 
   def process(%Goaway{} = frame, state) do
     log_goaway(frame)
+    Logger.info("[KADABRA] Processor error GOAWAY")
     {:connection_error, :NO_ERROR, nil, state}
   end
 
@@ -214,14 +220,12 @@ defmodule Kadabra.Connection.Processor do
   end
 
   def process(frame, state) do
-    if debug_log?() do
-      """
-      Unknown RECV on connection
-      Frame: #{inspect(frame)}
-      State: #{inspect(state)}
-      """
-      |> Logger.info()
-    end
+    """
+    Unknown RECV on connection
+    Frame: #{inspect(frame)}
+    State: #{inspect(state)}
+    """
+    |> Logger.info()
 
     {:ok, state}
   end
@@ -244,10 +248,8 @@ defmodule Kadabra.Connection.Processor do
   end
 
   def log_goaway(%Goaway{last_stream_id: id, error_code: c, debug_data: b}) do
-    if debug_log?() do
-      error = Error.parse(c)
-      Logger.error("Got GOAWAY, #{error}, Last Stream: #{id}, Rest: #{b}")
-    end
+    error = Error.parse(c)
+    Logger.error("Got GOAWAY, #{error}, Last Stream: #{id}, Rest: #{b}")
   end
 
   def notify_settings_change(old_settings, new_settings, %{stream_set: set}) do

@@ -44,6 +44,8 @@ defmodule Kadabra.Connection do
     {:ok, decoder} = Hpack.start_link()
     {:ok, socket} = Socket.start_link(config.uri, config.opts)
 
+    Logger.info("[KADABRA] Socket: #{inspect(socket)}")
+
     config =
       config
       |> Map.put(:encoder, encoder)
@@ -117,7 +119,8 @@ defmodule Kadabra.Connection do
     {:noreply, state}
   end
 
-  def sendf(_else, state) do
+  def sendf(elses, state) do
+    Logger.info "[KADABRA] else #{elses}"
     {:noreply, state}
   end
 
@@ -146,6 +149,7 @@ defmodule Kadabra.Connection do
   end
 
   def handle_info({:EXIT, _pid, {:shutdown, {:finished, sid}}}, state) do
+    Logger.info "[KADABRA] exit"
     GenServer.cast(state.queue, {:ask, 1})
 
     flow =
@@ -157,14 +161,16 @@ defmodule Kadabra.Connection do
   end
 
   def handle_info({:push_promise, stream}, %{config: config} = state) do
+    Logger.info "[KADABRA] push promise #{inspect(state)}"
     Kernel.send(config.client, {:push_promise, stream})
     {:noreply, state}
   end
 
   def handle_info({:recv, frame}, state) do
+    Logger.info "[KADABRA] outside recv"
     case Processor.process(frame, state) do
       {:ok, state} ->
-        Logger.info "[KADABRA] Connection ok"
+        Logger.info "[KADABRA] recv"
         {:noreply, state}
 
       {:connection_error, error, reason, state} ->
