@@ -9,6 +9,8 @@ defmodule Kadabra.Socket do
 
   use GenServer
 
+  require Logger
+
   @type ssl_sock :: {:sslsocket, any, pid | {any, any}}
 
   @type connection_result ::
@@ -71,6 +73,8 @@ defmodule Kadabra.Socket do
       |> Keyword.get(:ssl, [])
       |> options(:https)
 
+    Logger.info "[KADABRA socket] do connect"
+
     uri.host
     |> to_charlist()
     |> :ssl.connect(uri.port, ssl_opts)
@@ -104,6 +108,7 @@ defmodule Kadabra.Socket do
   # Frame recv and parsing
 
   defp do_recv_bin(bin, %{socket: socket} = state) do
+    Logger.info "[KADABRA socket] recv bin"
     bin = state.buffer <> bin
 
     case parse_bin(socket, bin, state) do
@@ -124,6 +129,7 @@ defmodule Kadabra.Socket do
         parse_bin(socket, rest, state)
 
       {:error, bin} ->
+        Logger.info "[KADABRA socket] error #{inspect(bin)}"
         {:unfinished, bin, state}
     end
   end
@@ -131,7 +137,7 @@ defmodule Kadabra.Socket do
   # Internal socket helpers
 
   defp socket_send({:sslsocket, _, _} = pid, bin) do
-    # IO.puts("Sending #{byte_size(bin)} bytes")
+    Logger.info "[KADABRA socket] Sending #{byte_size(bin)} bytes"
     :ssl.send(pid, bin)
   end
 
@@ -150,20 +156,24 @@ defmodule Kadabra.Socket do
   # handle_call
 
   def handle_call({:set_active, pid}, _from, state) do
+    Logger.info "[KADABRA socket] set active"
     {:reply, :ok, %{state | active_user: pid}}
   end
 
   # Ignore if socket isn't established
   def handle_call({:send, _bin}, _from, %{socket: nil} = state) do
+    Logger.info "[KADABRA socket] send ignore"
     {:reply, :ok, state}
   end
 
   def handle_call({:send, bin}, _from, state) when is_binary(bin) do
+    Logger.info "[KADABRA socket] send bin"
     resp = socket_send(state.socket, bin)
     {:reply, resp, state}
   end
 
   def handle_call({:send, bins}, _from, state) when is_list(bins) do
+    Logger.info "[KADABRA socket] send bins"
     for bin <- bins, do: socket_send(state.socket, bin)
     {:reply, :ok, state}
   end
@@ -171,6 +181,7 @@ defmodule Kadabra.Socket do
   # handle_info
 
   def handle_info(:send_preface, state) do
+    Logger.info "[KADABRA socket] send preface"
     socket_send(state.socket, connection_preface())
     {:noreply, state}
   end
@@ -180,6 +191,7 @@ defmodule Kadabra.Socket do
   end
 
   def handle_info({:tcp_closed, _socket}, state) do
+    Logger.info "[KADABRA socket] tcp closed"
     Kernel.send(state.active_user, {:closed, self()})
     {:noreply, %{state | socket: nil}}
   end
@@ -188,7 +200,14 @@ defmodule Kadabra.Socket do
     do_recv_bin(bin, state)
   end
 
+  def handle_info({:ssl_error, _, reason}, state) do
+    Logger.info "[KADABRA socket] ssl error"
+    Kernel.send(state.active_user, {:closed, self()})
+    {:noreply, %{state | socket: nil}}
+  end
+
   def handle_info({:ssl_closed, _socket}, state) do
+    Logger.info "[KADABRA socket] ssl closed"
     Kernel.send(state.active_user, {:closed, self()})
     {:noreply, %{state | socket: nil}}
   end

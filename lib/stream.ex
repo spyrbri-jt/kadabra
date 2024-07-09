@@ -83,6 +83,7 @@ defmodule Kadabra.Stream do
   # recv
 
   def recv(from, :close, _state, _stream) do
+    Logger.info("[KADABRA] recv :close")
     {:stop, :normal, [{:reply, from, :ok}]}
   end
 
