@@ -142,7 +142,11 @@ defmodule Kadabra.Socket do
   end
 
   defp socket_send(pid, bin) do
-    :gen_tcp.send(pid, bin)
+    Logger.info "[KADABRA socket send] #{inspect(pid)} bin: #{inspect(bin)}"
+    response = :gen_tcp.send(pid, bin)
+    Logger.info "[KADABRA socket send] response: #{inspect(response)}"
+
+    response
   end
 
   defp setopts({:sslsocket, _, _} = pid, opts) do
@@ -169,6 +173,8 @@ defmodule Kadabra.Socket do
   def handle_call({:send, bin}, _from, state) when is_binary(bin) do
     Logger.info "[KADABRA socket] send bin"
     resp = socket_send(state.socket, bin)
+    Logger.info "[KADABRA socket] send bin response #{inspect(resp)} socket pid #{inspect(self())}"
+    Logger.info "[KADABRA socket] socket state #{inspect(state)}"
     {:reply, resp, state}
   end
 

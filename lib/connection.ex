@@ -136,7 +136,7 @@ defmodule Kadabra.Connection do
   end
 
   def handle_info(:start, %{config: %{socket: socket}} = state) do
-    Logger.info "[KADABRA] Connection start"
+    Logger.info "[KADABRA] Connection start #{inspect(socket)}"
     Socket.set_active(socket)
     Egress.send_local_settings(socket, state.local_settings)
 
